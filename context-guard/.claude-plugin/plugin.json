@@ -1,0 +1,35 @@
+{
+  "name": "context-guard",
+  "version": "0.1.0",
+  "description": "Context runway gauge: warns before your context line with Compact, Hand off and Snooze",
+  "author": {
+    "name": "Galih Citta"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "lineTokens": {
+      "type": "number",
+      "title": "Warning line (tokens)",
+      "description": "Hard cap for the warning line; the line is the lower of this and auto-compact minus the margin",
+      "default": 350000
+    },
+    "marginTokens": {
+      "type": "number",
+      "title": "Margin (tokens)",
+      "description": "Distance below auto-compact for the line, and length of the yellow zone",
+      "default": 50000
+    },
+    "snoozeTokens": {
+      "type": "number",
+      "title": "Snooze step (tokens)",
+      "description": "How far one snooze raises the line",
+      "default": 50000
+    },
+    "compactInstructions": {
+      "type": "string",
+      "title": "Compact instructions",
+      "description": "What the Compact button asks the summary to keep",
+      "default": "Preserve: current goal and plan, decisions made and their reasons, open questions, file paths and line refs touched, unverified claims marked as unverified, and the next step."
+    }
+  }
+}
