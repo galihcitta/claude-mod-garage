@@ -131,3 +131,16 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect((await band.find({ text: /Compact queued/ }))?.text).toContain('Runs when this turn ends')
   })
 }
+
+for (const surface of ['terminal', 'desktop'] as const) {
+  test(`compact button in an SDK session runs /compact (${surface})`, { options: { lineTokens: 350000 } }, async ($: any, on: any) => {
+    const { commands } = setup($, on, 370000)
+    on('command.register', () => ({ value: undefined }))
+    on('session.start', (_$: any, e: any) => ({ cwd: e.cwd }))
+    await $.session.start({ cwd: '/tmp', surface, isInteractive: false })
+    await $.session.measure({ context: { tokens: 370000, window: 1000000, percent: 37 }, rateLimits: [], changed: [] })
+    const band = await $.ui.mount({ plugin: 'context-guard', surface, component: 'AbovePrompt', props: PROPS })
+    await band.press({ key: 'compact' })
+    expect(commands).toContain('compact')
+  })
+}

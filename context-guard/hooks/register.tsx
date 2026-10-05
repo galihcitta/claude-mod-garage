@@ -24,7 +24,7 @@ const HANDOFF_RE = /\.claude\/handoffs\/[\w.-]+\.md/
 
 const k = (n: number) => `${Math.round(n / 1000)}k`
 
-type Opts = { line: number; margin: number; step: number; instructions: string; isMacNotify: boolean }
+type Opts = { line: number; margin: number; step: number; instructions: string; isMacNotify: boolean; isHeadless: boolean }
 
 type Runway = { turns: number | null; target: 'line' | 'auto' }
 
@@ -133,14 +133,31 @@ async function tryCompact($: any, opts: Opts): Promise<{ isDone: boolean; error?
   }
 }
 
+// SDK sessions (the desktop app, -p) can't compact from a plugin; there it runs as a /compact command,
+// which the engine itself holds until the session is idle
+async function compactByCommand($: any, opts: Opts) {
+  try {
+    await $.command.run({ command: 'compact', args: opts.instructions })
+    await log($, 'compact-command')
+  } catch (err) {
+    $.ui.toast(`Compact refused: ${errorText(err)}`, { timeoutMs: 10000 })
+    await log($, 'compact-error', errorText(err))
+  }
+}
+
 // Pressed mid-turn: queue it for the end of the turn. Pressed while idle: compact now, and show the real reason if refused.
 async function compact($: any, opts: Opts, isWorking: boolean) {
+  if (opts.isHeadless) return compactByCommand($, opts)
   if (isWorking) {
     await update($, isQueued, () => true)
     await log($, 'compact-queued')
     return
   }
   const { isDone, error } = await tryCompact($, opts)
+  if (!isDone && /headless|SDK/i.test(error ?? '')) {
+    opts.isHeadless = true
+    return compactByCommand($, opts)
+  }
   if (!isDone) {
     $.ui.toast(`Compact refused: ${error}`, { timeoutMs: 10000 })
     await log($, 'compact-error', error)
@@ -184,9 +201,11 @@ export const register: Register = (on, options) => {
     step: Number(options.snoozeTokens ?? 50000),
     instructions: String(options.compactInstructions ?? ''),
     isMacNotify: options.macNotification !== false,
+    isHeadless: false,
   }
 
   on('session.start', async ($, e, next) => {
+    opts.isHeadless = !e.isInteractive
     await $.command.register({ name: 'context-guard-log', description: 'Show the last context-guard actions (for tuning the line)' })
     const { context } = await $.session.usage()
     await refresh($, opts, context.tokens)
