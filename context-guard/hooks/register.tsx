@@ -225,7 +225,7 @@ export const register: Register = (on, options) => {
     const isDesktop = e.surface !== 'terminal'
     // Draw beside other plugins' content in this slot instead of replacing it
     const stack = async (mine: unknown) => (
-      <Box flexDirection="column" rowGap={1}>
+      <Box flexDirection="column">
         {mine}
         {await next(e)}
       </Box>
