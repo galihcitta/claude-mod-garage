@@ -134,13 +134,30 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
 for (const surface of ['terminal', 'desktop'] as const) {
   test(`compact button in an SDK session runs /compact (${surface})`, { options: { lineTokens: 350000 } }, async ($: any, on: any) => {
+    // /compact compacts before command.run returns, which clears the gauge; the test compacts while the command waits
+    let reached = () => {}
+    let release = () => {}
+    const isReached = new Promise<void>(r => { reached = r })
+    const isReleased = new Promise<void>(r => { release = r })
+    on('command.run', { command: 'compact' }, async (_$: any, e: any, next: any) => {
+      reached()
+      await isReleased
+      return next(e)
+    })
     const { commands } = setup($, on, 370000)
     on('command.register', () => ({ value: undefined }))
     on('session.start', (_$: any, e: any) => ({ cwd: e.cwd }))
+    on('session.compact', () => ({ messages: [{ role: 'assistant', text: 'summary', toolUses: [] }] }))
     await $.session.start({ cwd: '/tmp', surface, isInteractive: false })
     await $.session.measure({ context: { tokens: 370000, window: 1000000, percent: 37 }, rateLimits: [], changed: [] })
     const band = await $.ui.mount({ plugin: 'context-guard', surface, component: 'AbovePrompt', props: PROPS })
-    await band.press({ key: 'compact' })
+    const pressing = band.press({ key: 'compact' })
+    await isReached
+    await $.session.compact({ trigger: 'manual', instructions: '', messages: [{ role: 'user', text: 'hi', toolUses: [] }] })
+    release()
+    await pressing
     expect(commands).toContain('compact')
+    const shown = await $.command.run({ command: 'context-guard-log' })
+    expect(shown.text).toMatch(/compact-command +370k \(line 350k\)/)
   })
 }

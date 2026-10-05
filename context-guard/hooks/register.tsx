@@ -28,8 +28,9 @@ type Opts = { line: number; margin: number; step: number; instructions: string; 
 
 type Runway = { turns: number | null; target: 'line' | 'auto' }
 
-async function log($: any, action: string, detail?: string) {
-  const g: Gauge | null = await read($, gauge)
+// `before` is the gauge read ahead of a compact, since the compact itself clears the gauge
+async function log($: any, action: string, detail?: string, before?: Gauge | null) {
+  const g: Gauge | null = before ?? (await read($, gauge))
   const prior = ((await $.store.get(LOG_KEY)) as unknown[] | undefined) ?? []
   const row = { at: await $.clock.now(), action, tokens: g?.tokens ?? null, line: g?.line ?? null, ...(detail ? { detail } : {}) }
   await $.store.set(LOG_KEY, [...prior, row].slice(-300))
@@ -122,10 +123,11 @@ const errorText = (err: unknown) => (err instanceof Error ? err.message : String
 
 // One attempt; true when it compacted or a hook vetoed it, false when the engine refused
 async function tryCompact($: any, opts: Opts): Promise<{ isDone: boolean; error?: string }> {
+  const before: Gauge | null = await read($, gauge)
   try {
     const done = await $.session.compact({ instructions: opts.instructions })
     if (done.skip) $.ui.toast('Compact was vetoed by another hook')
-    await log($, done.skip ? 'compact-vetoed' : 'compact')
+    await log($, done.skip ? 'compact-vetoed' : 'compact', undefined, before)
 
     return { isDone: true }
   } catch (err) {
@@ -136,9 +138,10 @@ async function tryCompact($: any, opts: Opts): Promise<{ isDone: boolean; error?
 // SDK sessions (the desktop app, -p) can't compact from a plugin; there it runs as a /compact command,
 // which the engine itself holds until the session is idle
 async function compactByCommand($: any, opts: Opts) {
+  const before: Gauge | null = await read($, gauge)
   try {
     await $.command.run({ command: 'compact', args: opts.instructions })
-    await log($, 'compact-command')
+    await log($, 'compact-command', undefined, before)
   } catch (err) {
     $.ui.toast(`Compact refused: ${errorText(err)}`, { timeoutMs: 10000 })
     await log($, 'compact-error', errorText(err))
