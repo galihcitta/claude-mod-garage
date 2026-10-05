@@ -223,13 +223,20 @@ export const register: Register = (on, options) => {
     const queued = await read($, isQueued)
     const { Box, Text, Button, Svg } = $.ui.resolve(e) as any
     const isDesktop = e.surface !== 'terminal'
+    // Draw beside other plugins' content in this slot instead of replacing it
+    const stack = async (mine: unknown) => (
+      <Box flexDirection="column" rowGap={1}>
+        {mine}
+        {await next(e)}
+      </Box>
+    )
 
     if (saved && e.props.isWorking) {
-      return <Text dimColor>Writing handoff: {saved}</Text>
+      return stack(<Text dimColor>Writing handoff: {saved}</Text>)
     }
 
     if (saved) {
-      return (
+      return stack(
         <Box flexDirection="row" gap={1} flexWrap="wrap">
           <Text color={GREEN}>✓ Handoff saved: {saved}</Text>
           <Button key="clear" label="Clear" hotkey="x" onPress={async () => { await log($, 'clear'); await $.command.run({ command: 'clear' }) }} />
@@ -239,7 +246,7 @@ export const register: Register = (on, options) => {
     }
 
     if (queued) {
-      return (
+      return stack(
         <Box flexDirection="row" gap={1}>
           <Text dimColor>Compact queued. Runs when this turn ends.</Text>
           <Button key="cancel" label="Cancel" hotkey="x" onPress={async () => { await update($, isQueued, () => false); await log($, 'compact-cancel') }} />
@@ -252,15 +259,15 @@ export const register: Register = (on, options) => {
     const past = g.tokens >= g.line
     const run = await runway($, g)
     const width = Math.max(16, Math.min(40, e.props.bodyColumns - 34))
-    const bar = isDesktop ? <Svg source={svgGauge(g)} alt={`Context ${k(g.tokens)} of ${k(g.line)} line`} height={10} /> : textGauge(Text, g, width)
-    const turnsLabel = run.turns === null ? null : `~${run.turns} turn${run.turns === 1 ? '' : 's'}${run.target === 'line' ? ' to your line' : ' of runway'}`
+    const bar = isDesktop ? <Svg source={svgGauge(g)} alt={`Context ${k(g.tokens)} of ${k(g.line)} line`} height={12} /> : textGauge(Text, g, width)
+    const turns = run.turns === null ? null : `~${run.turns} turn${run.turns === 1 ? '' : 's'}`
 
     if (!past) {
-      return (
+      return stack(
         <Box flexDirection="row" alignItems="center" gap={1}>
-          <Text color={AMBER}>◆ {k(g.tokens)}</Text>
+          <Text color={AMBER} bold>◆ {k(g.tokens)}</Text>
           <Box flexGrow={1}>{bar}</Box>
-          <Text dimColor>{k(g.line - g.tokens)} to your line{turnsLabel ? ` · ${turnsLabel}` : ''}</Text>
+          <Text dimColor>{k(g.line - g.tokens)} to your {k(g.line)} line{turns ? ` · ${turns}` : ''}</Text>
         </Box>
       )
     }
@@ -272,12 +279,12 @@ export const register: Register = (on, options) => {
       who ? `biggest: ${who}` : null,
     ].filter(Boolean).join(' · ')
 
-    return (
+    return stack(
       <Box flexDirection="column">
         <Box flexDirection="row" alignItems="center" gap={1}>
           <Text color={CORAL} bold>▲ {k(g.tokens)}</Text>
           <Box flexGrow={1}>{bar}</Box>
-          {turnsLabel && <Text color={CORAL}>{turnsLabel}</Text>}
+          {turns && <Text color={CORAL}>{turns} of runway</Text>}
         </Box>
         <Box flexDirection="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
           <Text dimColor>{detail}</Text>
@@ -331,17 +338,19 @@ const svgGauge = (g: Gauge) => {
   const W = 1000
   const max = scaleOf(g)
   const x = (t: number) => Math.min(W, Math.max(0, (t / max) * W))
-  const seg = (from: number, to: number, color: string) => (to > from ? `<rect x="${x(from)}" y="2" width="${x(to) - x(from)}" height="6" fill="${color}"/>` : '')
+  const seg = (from: number, to: number, color: string) => (to > from ? `<rect x="${x(from)}" y="3" width="${x(to) - x(from)}" height="6" fill="${color}"/>` : '')
+  const tick = (t: number, color: string, w: number) => `<rect x="${Math.min(W - w, Math.max(0, x(t) - w / 2))}" y="0" width="${w}" height="12" fill="${color}"/>`
   const now = g.tokens
-  const tick = (t: number, color: string, w: number) => `<rect x="${Math.min(W - w, Math.max(0, x(t) - w / 2))}" y="0" width="${w}" height="10" fill="${color}"/>`
-  const parts = [
-    `<rect x="0" y="2" width="${W}" height="6" fill="${TRACK}" fill-opacity="0.25"/>`,
+  const bar = [
+    `<rect x="0" y="3" width="${W}" height="6" fill="${TRACK}" fill-opacity="0.22"/>`,
     seg(0, Math.min(now, g.warnFrom), GREEN),
     seg(g.warnFrom, Math.min(now, g.line), AMBER),
     seg(g.line, now, CORAL),
-    tick(g.line, TRACK, 3),
-    g.autoAt === null ? '' : tick(g.autoAt, RED, 4),
-  ]
+  ].join('')
+  const ticks = tick(g.line, TRACK, 3) + (g.autoAt === null ? '' : tick(g.autoAt, RED, 4))
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 10" preserveAspectRatio="none" height="10">${parts.join('')}</svg>`
+  // width="4000" asks for more than any slot, so the surface caps it to the full row
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 12" preserveAspectRatio="none" width="4000" height="12">`
+    + `<defs><clipPath id="round"><rect x="0" y="3" width="${W}" height="6" rx="3"/></clipPath></defs>`
+    + `<g clip-path="url(#round)">${bar}</g>${ticks}</svg>`
 }

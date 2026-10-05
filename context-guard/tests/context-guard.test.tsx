@@ -27,7 +27,7 @@ const setup = ($: any, on: any, tokens: number) => {
   mock.clock(on, { now: Date.parse('2026-10-05T10:00:00Z') })
   const commands: string[] = []
   on('session.usage', () => ({ value: usage(tokens) }))
-  on('ui.render', ($$: any, e: any) => { const { Box } = $$.ui.resolve(e); return <Box /> })
+  on('ui.render', ($$: any, e: any) => { const { Box, Text } = $$.ui.resolve(e); return <Box><Text>next: suggestions</Text></Box> })
   on('session.measure', (_$: any, e: any) => ({ changed: e.changed }))
   on('session.end', (_$: any, e: any) => ({ sessionId: e.sessionId }))
   on('command.run', (_$: any, e: any) => {
@@ -52,12 +52,13 @@ for (const surface of ['terminal', 'desktop'] as const) {
     const band = await $.ui.mount({ plugin: 'context-guard', surface, component: 'AbovePrompt', props: PROPS })
     expect((await band.find({ text: /20k past your line/ }))?.text).toContain('auto-compact at 967k')
     expect((await band.find({ text: /biggest: Messages/ }))?.text).toContain('Messages 89%')
+    expect(await band.find({ text: /next: suggestions/ })).toBeDefined()
 
     if (surface === 'desktop') {
       const svg = await band.find({ type: 'Svg' })
       expect(svg?.props.width).toBeUndefined()
-      expect(svg?.props.height).toBe(10)
-      expect(String(svg?.props.source)).toContain('viewBox="0 0 1000 10"')
+      expect(svg?.props.height).toBe(12)
+      expect(String(svg?.props.source)).toContain('width="4000"')
     }
 
     await band.press({ key: 'handoff' })
