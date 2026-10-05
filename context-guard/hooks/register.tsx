@@ -209,6 +209,8 @@ export const register: Register = (on, options) => {
       await resetAfterCompact($)
       await update($, handoffPath, () => null)
       await update($, isHandoffPending, () => false)
+      await update($, gauge, () => null)
+      $.ui.status(statusText(null))
     }
 
     return next(e)
@@ -221,6 +223,10 @@ export const register: Register = (on, options) => {
     const queued = await read($, isQueued)
     const { Box, Text, Button, Svg } = $.ui.resolve(e) as any
     const isDesktop = e.surface !== 'terminal'
+
+    if (saved && e.props.isWorking) {
+      return <Text dimColor>Writing handoff: {saved}</Text>
+    }
 
     if (saved) {
       return (

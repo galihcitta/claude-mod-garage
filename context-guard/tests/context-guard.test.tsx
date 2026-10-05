@@ -27,8 +27,9 @@ const setup = ($: any, on: any, tokens: number) => {
   mock.clock(on, { now: Date.parse('2026-10-05T10:00:00Z') })
   const commands: string[] = []
   on('session.usage', () => ({ value: usage(tokens) }))
-  on('ui.render', () => null)
+  on('ui.render', ($$: any, e: any) => { const { Box } = $$.ui.resolve(e); return <Box /> })
   on('session.measure', (_$: any, e: any) => ({ changed: e.changed }))
+  on('session.end', (_$: any, e: any) => ({ sessionId: e.sessionId }))
   on('command.run', (_$: any, e: any) => {
     commands.push(e.command)
     return { text: '' }
@@ -63,10 +64,18 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(commands).toContain('creating-handoffs')
 
     await $.tool.call({ tool: 'Bash', tool_use_id: 't1', command: 'python scripts/create_handoff.py context-guard' })
+    await band.redraw({ ...PROPS, isWorking: true })
+    expect((await band.find({ text: /Writing handoff/ }))?.text).toContain('.claude/handoffs/')
+    expect(await band.find({ key: 'clear' })).toBeUndefined()
+
     await band.redraw(PROPS)
     expect((await band.find({ text: /Handoff saved/ }))?.text).toContain('.claude/handoffs/2026-10-05-143022-context-guard.md')
 
     await band.press({ key: 'clear' })
     expect(commands).toContain('clear')
+
+    await $.session.end({ reason: 'clear', sessionId: 's1', resume: {} })
+    await band.redraw(PROPS)
+    expect(await band.find({ text: /Handoff saved|past your line/ })).toBeUndefined()
   })
 }
