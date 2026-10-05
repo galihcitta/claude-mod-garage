@@ -24,7 +24,7 @@ const HANDOFF_RE = /\.claude\/handoffs\/[\w.-]+\.md/
 
 const k = (n: number) => `${Math.round(n / 1000)}k`
 
-type Opts = { line: number; margin: number; step: number; instructions: string }
+type Opts = { line: number; margin: number; step: number; instructions: string; isMacNotify: boolean }
 
 type Runway = { turns: number | null; target: 'line' | 'auto' }
 
@@ -92,11 +92,20 @@ async function refresh($: any, opts: Opts, tokens: number | undefined) {
   const wasPast = await read($, isPast)
   const nowPast = tokens >= line
   if (nowPast && !wasPast) {
-    $.ui.toast(`Context ${k(tokens)}, past your ${k(line)} line`)
+    const message = `Context ${k(tokens)}, past your ${k(line)} line`
+    $.ui.toast(message, { timeoutMs: 10000 })
+    if (opts.isMacNotify) void notifyMac($, message)
     await learnEater($)
     await log($, 'crossed')
   }
   if (nowPast !== wasPast) await update($, isPast, () => nowPast)
+}
+
+// A macOS banner reaches you when Claude Code is in the background; elsewhere osascript is absent and this does nothing
+async function notifyMac($: any, text: string) {
+  try {
+    await $.process.run(['osascript', '-e', `display notification ${JSON.stringify(text)} with title "context-guard"`], { timeoutMs: 5000 })
+  } catch {}
 }
 
 async function resetAfterCompact($: any) {
@@ -136,6 +145,7 @@ export const register: Register = (on, options) => {
     margin: Number(options.marginTokens ?? 50000),
     step: Number(options.snoozeTokens ?? 50000),
     instructions: String(options.compactInstructions ?? ''),
+    isMacNotify: options.macNotification !== false,
   }
 
   on('session.start', async ($, e, next) => {

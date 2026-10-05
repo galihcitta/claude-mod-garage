@@ -27,6 +27,7 @@ const setup = ($: any, on: any, tokens: number) => {
   mock.clock(on, { now: Date.parse('2026-10-05T10:00:00Z') })
   const commands: string[] = []
   const pressed: string[] = []
+  const ran: string[][] = []
   on('session.usage', () => ({ value: usage(tokens) }))
   on('ui.render', ($$: any, e: any) => {
     const { Box, Text, Button } = $$.ui.resolve(e)
@@ -48,16 +49,19 @@ const setup = ($: any, on: any, tokens: number) => {
     const out = 'Created handoff: /Users/x/Works/tada/.claude/handoffs/2026-10-05-143022-context-guard.md'
     return { result: { stdout: out, stderr: '', interrupted: false }, text: out }
   })
+  on('process.run', (_$: any, e: any) => { ran.push(e.argv); return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } } })
   on('ui.status', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
 
-  return { commands, pressed }
+  return { commands, pressed, ran }
 }
 
 for (const surface of ['terminal', 'desktop'] as const) {
   test(`band past the line, handoff path, clear (${surface})`, { options: { lineTokens: 350000 } }, async ($: any, on: any) => {
-    const { commands, pressed } = setup($, on, 370000)
+    const { commands, ran } = setup($, on, 370000)
     await $.session.measure({ context: { tokens: 370000, window: 1000000, percent: 37 }, rateLimits: [], changed: [] })
+
+    expect(ran.some(argv => argv[0] === 'osascript' && argv[2].includes('past your 350k line'))).toBe(true)
 
     const band = await $.ui.mount({ plugin: 'context-guard', surface, component: 'AbovePrompt', props: PROPS })
     expect((await band.find({ text: /20k past your 350k line/ }))?.text).toContain('auto-compact at 967k')

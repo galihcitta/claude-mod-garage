@@ -30,6 +30,12 @@
       "title": "Compact instructions",
       "description": "What the Compact button asks the summary to keep",
       "default": "Preserve: current goal and plan, decisions made and their reasons, open questions, file paths and line refs touched, unverified claims marked as unverified, and the next step."
+    },
+    "macNotification": {
+      "type": "boolean",
+      "title": "macOS notification",
+      "description": "Also post a macOS notification banner when you cross the line",
+      "default": true
     }
   }
 }
