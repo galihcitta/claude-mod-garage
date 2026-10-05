@@ -5,6 +5,7 @@ See every running Claude Code session at a glance, without scrolling back or ask
 - **Strip above the prompt**: one pill per running session on this Mac. ● working, ◉ needs you, ○ idle, ◌ stale. A session that needs you gets an orange border and a line saying what it needs, with a **Seen** button.
 - **`/board` pane**: a card per session with title, goal, now, next and what it needs from you, plus **Seen** and **Dismiss**.
 - **Status line**: this session's own `now: … · next: …`.
+- **A web page**: `~/.claude/session-board/board.html`, rewritten on every heartbeat and reloading itself every 5 s. Keep it as a pinned browser tab; its title shows how many sessions need you. Open it with `open ~/.claude/session-board/board.html`.
 
 The strip hides itself when only one session is running.
 

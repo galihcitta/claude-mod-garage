@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { Card, Marks, Row, SessionState } from '../types'
+import { renderPage } from './page'
 
 // Every session writes its own card to ~/.claude/session-board/card-<id>.json
 // on a heartbeat and reads everyone's. There is no cross-session API, so the
@@ -104,8 +105,11 @@ async function poll($: any, opts: Opts) {
       out.push({ ...card, isMe: card.id === me?.id, isStale: now - card.heartbeat > opts.dimAfterMs, isSeen: marks.seenSince === card.since })
     } catch {}
   }
-  await update($, rows, () => order(out))
+  const sorted = order(out)
+  await update($, rows, () => sorted)
   await update($, clockNow, () => now)
+  // The same board as a page; every session writes the same content, so the last writer wins harmlessly
+  await $.fs.write(`${dir}/board.html`, renderPage(order(sorted.map(r => ({ ...r, isMe: false }))), opts.dimAfterMs)).catch(() => {})
   showStatus($)
 }
 

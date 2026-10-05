@@ -121,3 +121,16 @@ test('an unreadable summary keeps the old card and marks it stale', async ($: an
   expect(mine.isSummaryStale).toBe(true)
   expect(mine.state).toBe('idle')
 })
+
+test('board.html lists the session that needs you first and escapes card text', async ($: any, on: any) => {
+  const { files } = setup(on)
+  files.set(`${DIR}/card-odd.json`, JSON.stringify(card('odd', { title: 'fix <script> tag', state: 'working', since: T0 - 30_000 })))
+  await start($)
+  await $.command.run({ command: 'board', args: 'goal pin it' })
+
+  const page = files.get(`${DIR}/board.html`)!
+  expect(page.indexOf('bridge · SIKA PH split')).toBeLessThan(page.indexOf('runners · lib mirror'))
+  expect(page).toContain('fix &lt;script&gt; tag')
+  expect(page).not.toContain('fix <script> tag')
+  expect(page).toContain('approve Bash')
+})
