@@ -269,7 +269,7 @@ export const register: Register = (on, options) => {
     const past = g.tokens >= g.line
     const run = await runway($, g)
     const width = Math.max(12, Math.min(40, e.props.bodyColumns - (past ? 62 : 40)))
-    const bar = isDesktop ? <Svg source={svgGauge(g)} alt={`Context ${k(g.tokens)} of ${k(g.line)} line`} height={12} /> : textGauge(Text, g, width)
+    const bar = isDesktop ? <Svg source={svgGauge(g)} alt={`Context ${k(g.tokens)} of ${k(g.line)} line`} height={18} /> : textGauge(Text, g, width)
     // A far-off estimate (e.g. ~119 turns) is noise; only show it when it is close
     const turns = run.turns === null || run.turns > 30 ? null : `~${run.turns} turn${run.turns === 1 ? '' : 's'}`
 
@@ -343,23 +343,30 @@ const textGauge = (Text: any, g: Gauge, width: number) => {
   )
 }
 
+const MARK = '#F1EFE8'
+const MARK_EDGE = '#2C2C2A'
+
 const svgGauge = (g: Gauge) => {
   const W = 1000
   const max = scaleOf(g)
   const x = (t: number) => Math.min(W, Math.max(0, (t / max) * W))
-  const seg = (from: number, to: number, color: string) => (to > from ? `<rect x="${x(from)}" y="3" width="${x(to) - x(from)}" height="6" fill="${color}"/>` : '')
-  const tick = (t: number, color: string, w: number) => `<rect x="${Math.min(W - w, Math.max(0, x(t) - w / 2))}" y="0" width="${w}" height="12" fill="${color}"/>`
+  const seg = (from: number, to: number, color: string) => (to > from ? `<rect x="${x(from)}" y="9" width="${x(to) - x(from)}" height="6" fill="${color}"/>` : '')
+  const edge = `stroke="${MARK_EDGE}" stroke-width="1" vector-effect="non-scaling-stroke"`
   const now = g.tokens
   const bar = [
-    `<rect x="0" y="3" width="${W}" height="6" fill="${TRACK}" fill-opacity="0.22"/>`,
+    `<rect x="0" y="9" width="${W}" height="6" fill="${TRACK}" fill-opacity="0.22"/>`,
     seg(0, Math.min(now, g.warnFrom), GREEN),
     seg(g.warnFrom, Math.min(now, g.line), AMBER),
     seg(g.line, now, CORAL),
   ].join('')
-  const ticks = tick(g.line, TRACK, 3) + (g.autoAt === null ? '' : tick(g.autoAt, RED, 4))
+  // Your line: a caret above the bar and a notch through it, light with a dark edge so it reads on any fill or theme
+  const lx = Math.min(W - 11, Math.max(11, x(g.line)))
+  const line = `<polygon points="${lx - 11},0 ${lx + 11},0 ${lx},7" fill="${MARK}" ${edge}/>`
+    + `<rect x="${lx - 1.5}" y="5" width="3" height="13" fill="${MARK}" ${edge}/>`
+  const auto = g.autoAt === null ? '' : `<rect x="${Math.min(W - 4, x(g.autoAt) - 2)}" y="7" width="4" height="10" rx="1" fill="${RED}"/>`
 
   // width="4000" asks for more than any slot, so the surface caps it to the full row
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 12" preserveAspectRatio="none" width="4000" height="12">`
-    + `<defs><clipPath id="round"><rect x="0" y="3" width="${W}" height="6" rx="3"/></clipPath></defs>`
-    + `<g clip-path="url(#round)">${bar}</g>${ticks}</svg>`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 18" preserveAspectRatio="none" width="4000" height="18">`
+    + `<defs><clipPath id="round"><rect x="0" y="9" width="${W}" height="6" rx="3"/></clipPath></defs>`
+    + `<g clip-path="url(#round)">${bar}</g>${auto}${line}</svg>`
 }

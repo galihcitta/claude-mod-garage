@@ -72,7 +72,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     if (surface === 'desktop') {
       const svg = await band.find({ type: 'Svg' })
       expect(svg?.props.width).toBeUndefined()
-      expect(svg?.props.height).toBe(12)
+      expect(svg?.props.height).toBe(18)
       expect(String(svg?.props.source)).toContain('width="4000"')
     }
 
