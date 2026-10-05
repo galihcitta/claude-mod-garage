@@ -132,5 +132,5 @@ test('board.html lists the session that needs you first and escapes card text', 
   expect(page.indexOf('bridge · SIKA PH split')).toBeLessThan(page.indexOf('runners · lib mirror'))
   expect(page).toContain('fix &lt;script&gt; tag')
   expect(page).not.toContain('fix <script> tag')
-  expect(page).toContain('approve Bash')
+  expect(page).toContain('Approve Bash')
 })
