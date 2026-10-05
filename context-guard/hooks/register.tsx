@@ -28,10 +28,10 @@ type Opts = { line: number; margin: number; step: number; instructions: string; 
 
 type Runway = { turns: number | null; target: 'line' | 'auto' }
 
-async function log($: any, action: string) {
+async function log($: any, action: string, detail?: string) {
   const g: Gauge | null = await read($, gauge)
   const prior = ((await $.store.get(LOG_KEY)) as unknown[] | undefined) ?? []
-  const row = { at: await $.clock.now(), action, tokens: g?.tokens ?? null, line: g?.line ?? null }
+  const row = { at: await $.clock.now(), action, tokens: g?.tokens ?? null, line: g?.line ?? null, ...(detail ? { detail } : {}) }
   await $.store.set(LOG_KEY, [...prior, row].slice(-300))
 }
 
@@ -118,15 +118,53 @@ async function resetAfterCompact($: any) {
   await update($, autoAt, () => null)
 }
 
-async function compact($: any, opts: Opts) {
+const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err)).slice(0, 200)
+
+// One attempt; true when it compacted or a hook vetoed it, false when the engine refused
+async function tryCompact($: any, opts: Opts): Promise<{ isDone: boolean; error?: string }> {
   try {
     const done = await $.session.compact({ instructions: opts.instructions })
     if (done.skip) $.ui.toast('Compact was vetoed by another hook')
-    await log($, 'compact')
-  } catch {
+    await log($, done.skip ? 'compact-vetoed' : 'compact')
+
+    return { isDone: true }
+  } catch (err) {
+    return { isDone: false, error: errorText(err) }
+  }
+}
+
+// Pressed mid-turn: queue it for the end of the turn. Pressed while idle: compact now, and show the real reason if refused.
+async function compact($: any, opts: Opts, isWorking: boolean) {
+  if (isWorking) {
     await update($, isQueued, () => true)
     await log($, 'compact-queued')
+    return
   }
+  const { isDone, error } = await tryCompact($, opts)
+  if (!isDone) {
+    $.ui.toast(`Compact refused: ${error}`, { timeoutMs: 10000 })
+    await log($, 'compact-error', error)
+  }
+}
+
+const RETRY_DELAYS = [1000, 2000, 4000, 8000]
+
+// A queued compact waits past the end of the turn, then retries with backoff until the session accepts it
+async function runQueued($: any, opts: Opts, attempt: number) {
+  if (!(await read($, isQueued))) return
+  const { isDone, error } = await tryCompact($, opts)
+  if (isDone) {
+    await update($, isQueued, () => false)
+    return
+  }
+  if (attempt + 1 < RETRY_DELAYS.length) {
+    await log($, 'compact-retry', error)
+    $.clock.after(RETRY_DELAYS[attempt + 1], () => void runQueued($, opts, attempt + 1))
+    return
+  }
+  await update($, isQueued, () => false)
+  $.ui.toast(`Compact refused: ${error}`, { timeoutMs: 10000 })
+  await log($, 'compact-error', error)
 }
 
 async function handoff($: any) {
@@ -152,6 +190,8 @@ export const register: Register = (on, options) => {
     await $.command.register({ name: 'context-guard-log', description: 'Show the last context-guard actions (for tuning the line)' })
     const { context } = await $.session.usage()
     await refresh($, opts, context.tokens)
+    // A compact queued before a reload or resume would otherwise wait for the next turn to end
+    if (await read($, isQueued)) $.clock.after(RETRY_DELAYS[0], () => void runQueued($, opts, 0))
 
     return next(e)
   })
@@ -159,7 +199,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'context-guard-log' }, async $ => {
     const rows = ((await $.store.get(LOG_KEY)) as any[] | undefined) ?? []
     if (rows.length === 0) return { text: 'No context-guard actions logged yet.' }
-    const lines = rows.slice(-20).map(r => `${new Date(r.at).toISOString().slice(0, 16)}  ${r.action.padEnd(15)} ${r.tokens === null ? '—' : k(r.tokens)} (line ${r.line === null ? '—' : k(r.line)})`)
+    const lines = rows.slice(-20).map(r => `${new Date(r.at).toISOString().slice(0, 16)}  ${r.action.padEnd(15)} ${r.tokens === null ? '—' : k(r.tokens)} (line ${r.line === null ? '—' : k(r.line)})${r.detail ? `  ${r.detail}` : ''}`)
 
     return { text: lines.join('\n') }
   })
@@ -181,8 +221,7 @@ export const register: Register = (on, options) => {
     }
     await update($, lastTurnTokens, () => now ?? null)
     if (await read($, isQueued)) {
-      await update($, isQueued, () => false)
-      $.clock.after(0, () => void compact($, opts))
+      $.clock.after(RETRY_DELAYS[0], () => void runQueued($, opts, 0))
     }
 
     return result
@@ -258,7 +297,7 @@ export const register: Register = (on, options) => {
     if (queued) {
       return stack(
         <Box flexDirection="row" gap={1}>
-          <Text dimColor>Compact queued. Runs when this turn ends.</Text>
+          <Text dimColor>{e.props.isWorking ? 'Compact queued. Runs when this turn ends.' : 'Compacting once the session is free…'}</Text>
           <Button key="cancel" label="Cancel" hotkey="x" onPress={async () => { await update($, isQueued, () => false); await log($, 'compact-cancel') }} />
         </Box>
       )
@@ -297,7 +336,7 @@ export const register: Register = (on, options) => {
           <Box flexShrink={0}><Text color={CORAL} bold wrap="truncate">▲ {k(g.tokens)}</Text></Box>
           <Box flexGrow={1} flexShrink={1} minWidth={0}>{bar}</Box>
           <Box flexDirection="row" gap={1} flexShrink={0}>
-            <Button key="compact" label="Compact" hotkey="c" onPress={() => compact($, opts)} />
+            <Button key="compact" label="Compact" hotkey="c" onPress={() => compact($, opts, e.props.isWorking)} />
             <Button key="handoff" label="Hand off" hotkey="h" onPress={() => handoff($)} />
             <Button key="snooze" label={`Remind at ${k(g.line + opts.step)}`} hotkey="s" onPress={async () => {
               await update($, snooze, n => n + opts.step)

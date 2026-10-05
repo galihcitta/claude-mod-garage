@@ -28,6 +28,7 @@ const setup = ($: any, on: any, tokens: number) => {
   const commands: string[] = []
   const pressed: string[] = []
   const ran: string[][] = []
+  const toasts: string[] = []
   on('session.usage', () => ({ value: usage(tokens) }))
   on('ui.render', ($$: any, e: any) => {
     const { Box, Text, Button } = $$.ui.resolve(e)
@@ -51,9 +52,9 @@ const setup = ($: any, on: any, tokens: number) => {
   })
   on('process.run', (_$: any, e: any) => { ran.push(e.argv); return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } } })
   on('ui.status', () => ({ value: undefined }))
-  on('ui.toast', () => ({ value: undefined }))
+  on('ui.toast', (_$: any, e: any) => { toasts.push(String(e.text ?? '')); return { value: undefined } })
 
-  return { commands, pressed, ran }
+  return { commands, pressed, ran, toasts }
 }
 
 for (const surface of ['terminal', 'desktop'] as const) {
@@ -93,5 +94,40 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await $.session.end({ reason: 'clear', sessionId: 's1', resume: {} })
     await band.redraw(PROPS)
     expect(await band.find({ text: /Handoff saved|past your line/ })).toBeUndefined()
+  })
+}
+
+for (const surface of ['terminal', 'desktop'] as const) {
+  test(`compact button: idle compacts now, refusal is shown, mid-turn queues (${surface})`, { options: { lineTokens: 350000 } }, async ($: any, on: any) => {
+    const { toasts } = setup($, on, 370000)
+    let isRefusing = false
+    let compacts = 0
+    // A refusing stand-in answers with no list, which the engine rejects: the plugin sees a refusal
+    on('session.compact', () => {
+      if (isRefusing) return { messages: 'refused' }
+      compacts += 1
+      return { messages: [{ role: 'assistant', text: 'summary', toolUses: [] }] }
+    })
+    await $.session.measure({ context: { tokens: 370000, window: 1000000, percent: 37 }, rateLimits: [], changed: [] })
+    const band = await $.ui.mount({ plugin: 'context-guard', surface, component: 'AbovePrompt', props: PROPS })
+
+    await band.press({ key: 'compact' })
+    expect(compacts).toBe(1)
+
+    await $.session.measure({ context: { tokens: 370000, window: 1000000, percent: 37 }, rateLimits: [], changed: [] })
+    await band.redraw(PROPS)
+    isRefusing = true
+    await band.press({ key: 'compact' })
+    expect(compacts).toBe(1)
+    const refusal = toasts.find(t => t.startsWith('Compact refused: '))
+    expect(refusal && refusal.length > 'Compact refused: '.length).toBe(true)
+    const log = (await $.command.run({ command: 'context-guard-log', args: '' })) as any
+    expect(String(log.text)).toContain('compact-error')
+    expect(String(log.text)).toContain(String(refusal).slice('Compact refused: '.length, 'Compact refused: '.length + 20))
+
+    await band.redraw({ ...PROPS, isWorking: true })
+    await band.press({ key: 'compact' })
+    await band.redraw({ ...PROPS, isWorking: true })
+    expect((await band.find({ text: /Compact queued/ }))?.text).toContain('Runs when this turn ends')
   })
 }

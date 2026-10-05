@@ -37,7 +37,7 @@ In the desktop app:
 
 | Button | Hotkey | What it does |
 |---|---|---|
-| **Compact** | `c` | Compacts with an instruction to keep the goal, plan, decisions, open questions, file refs and next step. Pressed mid-turn, it queues ("Compact queued", with **Cancel**) and runs when the turn ends. |
+| **Compact** | `c` | Compacts right away with an instruction to keep the goal, plan, decisions, open questions, file refs and next step. Pressed mid-turn, it queues ("Compact queued", with **Cancel**) and retries once the session is free. If Claude Code refuses, the real reason shows in a toast and in `/context-guard-log`. |
 | **Hand off** | `h` | Runs `/creating-handoffs`. While the skill writes, the band shows "Writing handoff: <path>"; once it's done, "✓ Handoff saved: <path>" with **Clear** (runs `/clear`) and **Dismiss**. |
 | **Remind at N** | `s` | Raises your line by 50k for this session. Resets after a compact or `/clear`. |
 
