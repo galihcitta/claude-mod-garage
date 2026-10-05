@@ -265,9 +265,9 @@ export const register: Register = (on, options) => {
     if (!past) {
       return stack(
         <Box flexDirection="row" alignItems="center" gap={1}>
-          <Text color={AMBER} bold>◆ {k(g.tokens)}</Text>
-          <Box flexGrow={1}>{bar}</Box>
-          <Text dimColor>{k(g.line - g.tokens)} to your {k(g.line)} line{turns ? ` · ${turns}` : ''}</Text>
+          <Box flexShrink={0}><Text color={AMBER} bold wrap="truncate">◆ {k(g.tokens)}</Text></Box>
+          <Box flexGrow={1} flexShrink={1} minWidth={0}>{bar}</Box>
+          <Box flexShrink={0}><Text dimColor wrap="truncate">{k(g.line - g.tokens)} to your {k(g.line)} line{turns ? ` · ${turns}` : ''}</Text></Box>
         </Box>
       )
     }
@@ -282,9 +282,9 @@ export const register: Register = (on, options) => {
     return stack(
       <Box flexDirection="column">
         <Box flexDirection="row" alignItems="center" gap={1}>
-          <Text color={CORAL} bold>▲ {k(g.tokens)}</Text>
-          <Box flexGrow={1}>{bar}</Box>
-          {turns && <Text color={CORAL}>{turns} of runway</Text>}
+          <Box flexShrink={0}><Text color={CORAL} bold wrap="truncate">▲ {k(g.tokens)}</Text></Box>
+          <Box flexGrow={1} flexShrink={1} minWidth={0}>{bar}</Box>
+          {turns && <Box flexShrink={0}><Text color={CORAL} wrap="truncate">{turns} of runway</Text></Box>}
         </Box>
         <Box flexDirection="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
           <Text dimColor>{detail}</Text>
