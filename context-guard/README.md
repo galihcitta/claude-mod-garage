@@ -1,19 +1,58 @@
 # context-guard
 
-A Claude Code mod that warns you before your context gets too big, and gives you one-click ways out.
+A Claude Code mod that warns you before your context gets too big, and gives you one-click ways out. It never acts on its own: it only warns and offers buttons.
 
-- **Status line**: `ctx ▰▰▰▱▱▱▱▱ 142k`, then `◆` when approaching and `▲` when past your line.
-- **Band above the prompt** once you're past the line: a runway gauge (your line, auto-compact point), an estimate of turns left at your recent burn rate, the biggest context category, and three buttons:
-  - **Compact, keep the plan**: compacts with an instruction to preserve goal, plan, decisions, open questions, file refs and next step.
-  - **Hand off**: runs `/creating-handoffs`, then offers **Clear** once the handoff file is saved.
-  - **Remind at N**: snoozes the warning by 50k for this session.
-- Works in the terminal (colored text gauge, hotkeys `c` `h` `s` after focusing the band with ctrl+x tab) and the desktop app (SVG gauge).
-- When you cross the line: a 10-second toast inside Claude Code, plus a macOS notification banner so you notice it while Claude Code is in the background.
-- Never acts on its own: it only warns and offers buttons.
+## What you see
+
+**Below the warning zone**, a meter in the status line:
+
+```
+ctx ▰▰▰▱▱▱▱▱ 142k
+```
+
+**Approaching your line** (50k before it), a one-row chip above the prompt:
+
+```
+◆ 318k  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▼━━━━━━━━━▎  32k to your 350k line · ~4 turns
+```
+
+**Past your line**, a two-row band:
+
+```
+▲ 352k  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▼━━━━━▎  [Compact] [Hand off] [Remind at 400k]
+2k past your 350k line · ~2 turns to auto-compact · auto-compact at 367k · biggest: Messages 66%
+```
+
+- **Gauge.** Green up to the chip zone, amber up to your line, coral past it. Your line is a caret with a notch through the bar, and auto-compact is the red cap at the end. In the desktop app it's an SVG that fills the row; in the terminal it's colored text.
+- **Turns estimate.** Your average tokens per turn over the last five turns, turned into turns left. It only shows when it's 30 or fewer, since a far-off figure is noise.
+- **Biggest.** The largest category from `/context`, so you can tell whether compacting will free much.
+- **Crossing the line** also shows a 10-second toast inside Claude Code and posts a macOS notification banner, so you notice while Claude Code is in the background. Each fires once per crossing.
+
+### Buttons
+
+| Button | Hotkey | What it does |
+|---|---|---|
+| **Compact** | `c` | Compacts with an instruction to keep the goal, plan, decisions, open questions, file refs and next step. Pressed mid-turn, it queues ("Compact queued", with **Cancel**) and runs when the turn ends. |
+| **Hand off** | `h` | Runs `/creating-handoffs`. While the skill writes, the band shows "Writing handoff: <path>"; once it's done, "✓ Handoff saved: <path>" with **Clear** (runs `/clear`) and **Dismiss**. |
+| **Remind at N** | `s` | Raises your line by 50k for this session. Resets after a compact or `/clear`. |
+
+Hotkeys work once the band has focus: ctrl+x then tab, or click it. In the desktop app, click the buttons.
+
+### Sharing the space
+
+Other plugins can draw above the prompt too, such as the next-steps suggestions box. context-guard draws its chip or band on top and keeps their content underneath, unchanged.
 
 ## The line
 
-The warning line is the lower of **350k** and **auto-compact threshold − 50k**, so it always fires before Claude Code compacts on its own. A yellow chip appears 50k before the line.
+The warning line is the lower of **350k** and **auto-compact minus 50k**, so it always fires before Claude Code compacts on its own. The chip starts 50k before the line. The mod reads the real auto-compact point from each session.
+
+| Session's auto-compact window | Auto-compact at | Chip from | Band from |
+|---|---|---|---|
+| 1M (desktop default) | ~967k | 300k | 350k |
+| 400k | ~367k | ~267k | ~317k |
+| 250k | ~217k | ~117k | ~167k |
+
+To give desktop sessions the same window as a terminal alias, set `"autoCompactWindow": 400000` in `~/.claude/settings.json`. A `CLAUDE_CODE_AUTO_COMPACT_WINDOW` set by an alias still wins.
 
 ## Install
 
@@ -38,10 +77,10 @@ Override any option in `~/.claude/settings.json`:
 | Option | Default | Meaning |
 |---|---|---|
 | `lineTokens` | 350000 | Cap for the warning line |
-| `marginTokens` | 50000 | Gap below auto-compact, and the yellow zone length |
-| `snoozeTokens` | 50000 | How far one snooze raises the line |
+| `marginTokens` | 50000 | Gap below auto-compact, and the chip zone's length |
+| `snoozeTokens` | 50000 | How far one Remind raises the line |
 | `macNotification` | true | Also post a macOS notification banner when you cross the line |
-| `compactInstructions` | preserve goal, plan, … | What the Compact button asks the summary to keep |
+| `compactInstructions` | keep goal, plan, … | What the Compact button asks the summary to keep |
 
 `/context-guard-log` lists past crossings and clicks, useful for tuning the line.
 
@@ -54,4 +93,4 @@ claude plugin validate .
 claude plugin test .
 ```
 
-Requires a Claude Code build with function hooks (written against 2.1.286; the API is early access).
+The tests run on both the terminal and desktop surfaces. Requires a Claude Code build with function hooks (written against 2.1.286; the API is early access).

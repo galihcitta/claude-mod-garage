@@ -4,7 +4,7 @@ Galih's personal Claude Code mods: plugins of function hooks that add panes, ban
 
 | Mod | What it does |
 |---|---|
-| [context-guard](context-guard/) | Runway gauge for your context window, with Compact, Hand off and Remind buttons before auto-compact hits |
+| [context-guard](context-guard/) | Context runway gauge above the prompt: a chip as you approach your line, a two-row band with Compact, Hand off and Remind once past it, plus a macOS banner |
 
 ## Install
 
