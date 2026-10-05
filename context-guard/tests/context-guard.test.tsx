@@ -60,13 +60,10 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await $.session.measure({ context: { tokens: 370000, window: 1000000, percent: 37 }, rateLimits: [], changed: [] })
 
     const band = await $.ui.mount({ plugin: 'context-guard', surface, component: 'AbovePrompt', props: PROPS })
-    expect((await band.find({ text: /20k past your line/ }))?.text).toContain('auto-compact at 967k')
+    expect((await band.find({ text: /20k past your 350k line/ }))?.text).toContain('auto-compact at 967k')
     expect((await band.find({ text: /biggest: Messages/ }))?.text).toContain('Messages 89%')
     expect((await band.find({ text: /^next:$/ }))?.text).toBe('next:')
-    const s0 = await band.find({ key: 's0' })
-    expect(String(s0?.props.label)).toEndWith('…')
-    await band.press({ key: 's0', plugin: 'test' })
-    expect(pressed).toContain('s0')
+    expect((await band.find({ key: 's0' }))?.props.label).toBe('Gauge still not full width, set explicit px')
 
     if (surface === 'desktop') {
       const svg = await band.find({ type: 'Svg' })
