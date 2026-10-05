@@ -5,7 +5,6 @@ Galih's personal Claude Code mods: plugins of function hooks that add panes, ban
 | Mod | What it does |
 |---|---|
 | [context-guard](context-guard/) | Context runway gauge above the prompt: a chip as you approach your line, a two-row band with Compact, Hand off and Remind once past it, plus a macOS banner |
-| [session-board](session-board/) | Every running session at a glance: a strip of session pills above the prompt (working, needs you, idle), a `/board` pane of progress cards, and your own now/next in the status line |
 
 ## Install
 
