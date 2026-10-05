@@ -23,9 +23,10 @@ ctx ▰▰▰▱▱▱▱▱ 142k
 2k past your 350k line · ~2 turns to auto-compact · auto-compact at 367k · biggest: Messages 66%
 ```
 
-In the desktop app, with the next-steps plugin's suggestions drawn underneath:
+In the desktop app:
 
-![context-guard band in the Claude desktop app](docs/desktop-band.png)
+<img src="docs/desktop-band.png" width="776" alt="context-guard band in the Claude desktop app: 387k, 37k past the 350k line, with Compact, Hand off and Remind at 400k buttons">
+
 
 - **Gauge.** Green up to the chip zone, amber up to your line, coral past it. Your line is a caret with a notch through the bar, and auto-compact is the red cap at the end. In the desktop app it's an SVG that fills the row; in the terminal it's colored text.
 - **Turns estimate.** Your average tokens per turn over the last five turns, turned into turns left. It only shows when it's 30 or fewer, since a far-off figure is noise.
