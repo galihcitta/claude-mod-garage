@@ -26,8 +26,18 @@ const setup = ($: any, on: any, tokens: number) => {
   mock.store(on)
   mock.clock(on, { now: Date.parse('2026-10-05T10:00:00Z') })
   const commands: string[] = []
+  const pressed: string[] = []
   on('session.usage', () => ({ value: usage(tokens) }))
-  on('ui.render', ($$: any, e: any) => { const { Box, Text } = $$.ui.resolve(e); return <Box><Text>next: suggestions</Text></Box> })
+  on('ui.render', ($$: any, e: any) => {
+    const { Box, Text, Button } = $$.ui.resolve(e)
+    return (
+      <Box flexDirection="column">
+        <Text dimColor>next:</Text>
+        <Box marginLeft={2}><Button key="s0" hotkey="1" plain label="Gauge still not full width, set explicit px" onPress={() => { pressed.push('s0') }} /></Box>
+        <Box marginLeft={2}><Button key="dismiss" hotkey="0" plain label="dismiss" onPress={() => { pressed.push('dismiss') }} /></Box>
+      </Box>
+    )
+  })
   on('session.measure', (_$: any, e: any) => ({ changed: e.changed }))
   on('session.end', (_$: any, e: any) => ({ sessionId: e.sessionId }))
   on('command.run', (_$: any, e: any) => {
@@ -41,18 +51,22 @@ const setup = ($: any, on: any, tokens: number) => {
   on('ui.status', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
 
-  return commands
+  return { commands, pressed }
 }
 
 for (const surface of ['terminal', 'desktop'] as const) {
   test(`band past the line, handoff path, clear (${surface})`, { options: { lineTokens: 350000 } }, async ($: any, on: any) => {
-    const commands = setup($, on, 370000)
+    const { commands, pressed } = setup($, on, 370000)
     await $.session.measure({ context: { tokens: 370000, window: 1000000, percent: 37 }, rateLimits: [], changed: [] })
 
     const band = await $.ui.mount({ plugin: 'context-guard', surface, component: 'AbovePrompt', props: PROPS })
     expect((await band.find({ text: /20k past your line/ }))?.text).toContain('auto-compact at 967k')
     expect((await band.find({ text: /biggest: Messages/ }))?.text).toContain('Messages 89%')
-    expect(await band.find({ text: /next: suggestions/ })).toBeDefined()
+    expect((await band.find({ text: /^next:$/ }))?.text).toBe('next:')
+    const s0 = await band.find({ key: 's0' })
+    expect(String(s0?.props.label)).toEndWith('…')
+    await band.press({ key: 's0', plugin: 'test' })
+    expect(pressed).toContain('s0')
 
     if (surface === 'desktop') {
       const svg = await band.find({ type: 'Svg' })

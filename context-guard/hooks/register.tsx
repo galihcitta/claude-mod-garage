@@ -224,12 +224,16 @@ export const register: Register = (on, options) => {
     const { Box, Text, Button, Svg } = $.ui.resolve(e) as any
     const isDesktop = e.surface !== 'terminal'
     // Draw beside other plugins' content in this slot instead of replacing it
-    const stack = async (mine: unknown) => (
-      <Box flexDirection="column">
-        {mine}
-        {await next(e)}
-      </Box>
-    )
+    const stack = async (mine: unknown, isTight = false) => {
+      const below = await next(e)
+
+      return (
+        <Box flexDirection="column">
+          {mine}
+          {isTight ? oneRow(below, Box, Text, e.props.bodyColumns) : below}
+        </Box>
+      )
+    }
 
     if (saved && e.props.isWorking) {
       return stack(<Text dimColor>Writing handoff: {saved}</Text>)
@@ -298,9 +302,46 @@ export const register: Register = (on, options) => {
             }} />
           </Box>
         </Box>
-      </Box>
+      </Box>,
+      true,
     )
   })
+}
+
+type Node = any
+
+const textOf = (n: Node): string => (typeof n === 'string' ? n : (n?.children ?? []).map(textOf).join(''))
+
+const buttonsIn = (n: Node): Node[] => (typeof n === 'string' || !n ? [] : n.type === 'Button' ? [n] : (n.children ?? []).flatMap(buttonsIn))
+
+const firstText = (n: Node): string | null => {
+  if (typeof n === 'string' || !n) return null
+  if (n.type === 'Text') return textOf(n).trim() || null
+  for (const c of n.children ?? []) {
+    const t = firstText(c)
+    if (t) return t
+  }
+
+  return null
+}
+
+const cut = (text: string, max: number) => (text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1))}…`)
+
+// Squeeze what the rest of the chain drew (e.g. a list of suggestion buttons)
+// into one row; each Button keeps its own handle, so presses still reach its plugin
+const oneRow = (below: Node, Box: any, Text: any, columns: number) => {
+  const buttons = buttonsIn(below)
+  if (buttons.length === 0) return below
+  const header = firstText(below)
+  const room = Math.max(8, Math.floor((columns - (header?.length ?? 0) - 2) / buttons.length) - 6)
+  const short = buttons.map(b => ({ ...b, props: { ...b.props, label: cut(String(b.props.label ?? ''), room) } }))
+
+  return (
+    <Box flexDirection="row" gap={2} flexWrap="nowrap">
+      {header && <Text dimColor>{header}</Text>}
+      {short}
+    </Box>
+  )
 }
 
 const scaleOf = (g: Gauge) => g.autoAt ?? Math.max(g.line * 1.15, g.tokens * 1.05)
