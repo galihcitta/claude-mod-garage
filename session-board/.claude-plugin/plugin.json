@@ -1,0 +1,21 @@
+{
+  "name": "session-board",
+  "version": "0.1.0",
+  "description": "See every running Claude Code session at a glance: a strip of session pills above the prompt, a /board pane of progress cards, and your own now/next in the status line",
+  "author": { "name": "Galih Citta" },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "summarizerModel": {
+      "type": "string",
+      "title": "Summarizer model",
+      "description": "Model that writes each session's card (title, goal, now, next, what it needs from you)",
+      "default": "haiku"
+    },
+    "dimAfterMinutes": {
+      "type": "number",
+      "title": "Dim after (minutes)",
+      "description": "A card whose session has not sent a heartbeat for this long is dimmed as stale",
+      "default": 10
+    }
+  }
+}
